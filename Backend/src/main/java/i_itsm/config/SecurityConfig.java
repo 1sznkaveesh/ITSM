@@ -1,0 +1,176 @@
+package i_itsm.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // Websites allowed to call this backend: the Vite dev server on our laptops, and on the cloud
+    // the website address in APP_URL (the Netlify site). Netlify passes the browser's Origin header on,
+    // so without the cloud address every POST/PUT (report, assign, status change) would be refused.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.url:http://localhost:5173}") String appUrl) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", appUrl.trim().replaceAll("/+$", "")));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            PrintWriter writer = response.getWriter();
+            writer.write("{\"error\":\"Unauthorized: " + authException.getMessage().replace("\"", "\\\"") + "\"}");
+            writer.flush();
+        };
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            PrintWriter writer = response.getWriter();
+            writer.write("{\"error\":\"Forbidden: " + accessDeniedException.getMessage().replace("\"", "\\\"") + "\"}");
+            writer.flush();
+        };
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                    AuthenticationEntryPoint authenticationEntryPoint,
+                                                    AccessDeniedHandler accessDeniedHandler,
+                                                    CorsConfigurationSource corsConfigurationSource)
+            throws Exception {
+
+        http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .csrf(AbstractHttpConfigurer::disable)
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
+            )
+            .authorizeHttpRequests(auth -> auth
+
+                // Public registration endpoint
+                .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+
+                // Public "is the server awake?" check, used by the cloud host and the login page
+                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+
+                // Suggested resolutions show other incidents' fixes, so only technicians and admins
+                .requestMatchers(HttpMethod.GET, "/api/incidents/*/suggestions").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+
+                // Anyone with a valid account can view/search incidents
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/incidents/**"
+                ).hasAnyRole(
+                    "EMPLOYEE",
+                    "TECHNICIAN",
+                    "ADMINISTRATOR"
+                )
+
+                // Any authenticated role can create an incident
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/incidents"
+                ).hasAnyRole(
+                    "EMPLOYEE",
+                    "TECHNICIAN",
+                    "ADMINISTRATOR"
+                )
+
+                // Technicians/admins change lifecycle; employees may edit their own incident details through service-level ownership checks.
+                .requestMatchers(HttpMethod.PUT, "/api/incidents/*/status").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers(HttpMethod.POST, "/api/incidents/*/acknowledge").hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.PUT, "/api/incidents/*").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+
+                .requestMatchers(HttpMethod.GET, "/api/incidents/*/notes").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers(HttpMethod.POST, "/api/incidents/*/notes").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/incidents/*/feedback").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+
+                // Delegation is requested by the assigned technician; approving/rejecting and overrides are admin-only.
+                .requestMatchers(HttpMethod.POST, "/api/assignments/*/delegate")
+                .hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.GET, "/api/assignments/delegations/mine")
+                .hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.POST, "/api/assignments/override")
+                .hasRole("ADMINISTRATOR")
+                .requestMatchers("/api/assignments/**")
+                .hasRole("ADMINISTRATOR")
+
+                // Only administrators can view audit information
+                .requestMatchers("/api/audit/**")
+                .hasRole("ADMINISTRATOR")
+
+                // All authenticated roles can access notifications
+                .requestMatchers("/api/notifications/**")
+                .authenticated()
+
+                // Current user info endpoint
+                .requestMatchers("/api/me", "/api/me/**").authenticated()
+
+                // Technicians: technicians and administrators can view; only administrators can add or edit
+                .requestMatchers(HttpMethod.GET, "/api/technicians/**").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/technicians/**").hasRole("ADMINISTRATOR")
+
+                // SLA endpoint and administrator configuration
+                .requestMatchers("/api/sla/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/sla-policies").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/sla-policies/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/services/**").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/services/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/categories/**").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/categories/**").hasRole("ADMINISTRATOR")
+                .requestMatchers("/api/users/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/settings/workload-limit").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/settings/**").hasRole("ADMINISTRATOR")
+
+                // Everything else requires authentication
+                .anyRequest().authenticated()
+            )
+            .httpBasic(httpBasic -> httpBasic
+                .authenticationEntryPoint(authenticationEntryPoint)
+            );
+
+        return http.build();
+    }
+}
