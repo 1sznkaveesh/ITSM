@@ -22,7 +22,7 @@ cd ITSM
 Open the project in your preferred Java IDE and run the main application.
 
 ## Author
-Malay Shah
-Mohit Soundankar
-Kaveesh Chaudhari
+Malay Shah ,
+Mohit Soundankar ,
+Kaveesh Chaudhari ,
 Yash Jaybhaye
