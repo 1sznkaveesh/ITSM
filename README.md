@@ -1,51 +1,49 @@
 # ITSM – IT Service Management System
 
-An object-oriented Java project designed to support IT service management workflows.
+A full-stack IT Service Management application for reporting, assigning and resolving IT incidents. It is built with object-oriented Java (Spring Boot) on the backend and React (Vite) on the frontend, with PostgreSQL for storage.
 
-## Overview
-This project demonstrates core OOP concepts through a modular IT Service Management application.
+## Features
 
-## Technologies
-- Java
-- Object-Oriented Programming
-- Git & GitHub
+- **Role-based access:** Employee, Technician and Administrator dashboards
+- **Incident management:** report, prioritise, assign, acknowledge, work on, resolve and close incidents
+- **Automatic priority and SLA:** priority is calculated from impact, urgency and business criticality, and SLA policies are applied to each incident
+- **Smart assignment:** incidents are assigned to technicians by skill and current workload
+- **Delegation and workload limits:** technicians can delegate incidents, and workload limits are enforced
+- **Duplicate detection and suggested fixes:** similar incidents are flagged, and past resolved incidents are suggested as fixes
+- **Feedback:** employees rate resolved incidents
+- **Notifications and audit trail:** key actions generate notifications and are recorded in the audit log
 
-## Getting Started
+## Tech Stack
 
-Clone the repository:
+| Layer | Technology |
+|---|---|
+| Backend | Java 21, Spring Boot, Spring Security, Spring Data JPA, Hibernate, Maven |
+| Frontend | React, Vite, Node.js, npm |
+| Database | PostgreSQL 16 |
+| Tools | Git, GitHub |
 
-```bash
-git clone https://github.com/1sznkaveesh/ITSM.git
-cd ITSM
+## Project Structure
+
+```text
+ITSM/
+├── Backend/     Spring Boot application (port 8080)
+└── Frontend/    React + Vite application (port 5173)
 ```
 
-Open the project in your preferred Java IDE and run the main application.
+## Prerequisites
 
-# Setup and Verification Guide
-
-Follow these instructions on a new system to install, run, and verify the ITSM application.
-
-## 1. Prerequisites
-
-Install the following software before setting up the project:
-
-| Software | Requirement |
+| Software | Version |
 |---|---|
-| Java JDK | 21 or later (Java 21 recommended) |
-| Apache Maven | 3.10.0 or compatible version |
-| Node.js | LTS version |
-| npm | Installed with Node.js |
-| PostgreSQL | 16 or compatible version |
-| Git | Latest stable version |
-| Code Editor | VS Code recommended |
+| Java JDK | 21 or later |
+| Apache Maven | 3.9 or later |
+| Node.js | LTS (npm included) |
+| PostgreSQL | 16 or compatible |
+| Git | Latest stable |
 
-### Verify installations
-
-Open CMD/Terminal and execute:
+Verify the installations:
 
 ```bash
 java -version
-javac -version
 mvn -version
 node -v
 npm -v
@@ -53,315 +51,203 @@ psql --version
 git --version
 ```
 
-Make sure all commands execute successfully.
+## Quick Start
 
-## 2. Clone the Repository
-
-Clone the GitHub repository:
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/1sznkaveesh/ITSM.git
-```
-
-Navigate into the project:
-
-```bash
 cd ITSM
 ```
 
-Check that the following directories are present:
+### 2. Set up the database
 
-```text
-ITSM/
-├── Backend/
-└── Frontend/
-```
+Make sure PostgreSQL is running, then create the database and give the `postgres` user a password.
 
-## 3. Database Setup (PostgreSQL)
-
-### Step 1: Start PostgreSQL
-
-Make sure the PostgreSQL server is running.
-
-### Step 2: Create the database
-
-Open PostgreSQL using:
+**Linux (peer authentication is the default)**
 
 ```bash
-psql -U postgres
+cd /tmp
+sudo -u postgres psql -c "CREATE DATABASE itsm_db;"
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres123';"
 ```
 
-Create the database:
+**Windows / macOS**
 
-```sql
-CREATE DATABASE itsm_db;
+```bash
+psql -U postgres -c "CREATE DATABASE itsm_db;"
 ```
 
-Exit PostgreSQL:
+Check that password login works (this is how the backend connects):
 
-```sql
-\q
+```bash
+psql -U postgres -h localhost -d itsm_db -c "SELECT 1;"
 ```
 
-If the database already exists, skip the creation step.
+> Use your own password instead of `postgres123`. Never commit real passwords to GitHub.
 
-### Step 3: Configure database credentials
+### 3. Start the backend
 
-Open the backend configuration file:
+Set the database connection through environment variables, then run the app.
 
-```text
-Backend/src/main/resources/application.properties
-```
-
-Check the following settings:
-
-- Database URL
-- Database name
-- PostgreSQL username
-- PostgreSQL password
-- Server port
-
-Ensure the credentials match your local PostgreSQL installation.
-
-**Important:** Never commit actual database passwords, API keys, or other sensitive credentials to GitHub. Use environment variables or a local configuration file excluded from Git.
-
-## 4. Backend Setup
-
-Open a terminal inside the Backend directory:
+**Linux / macOS**
 
 ```bash
 cd Backend
-```
-
-### Step 1: Compile the backend
-
-```bash
-mvn clean compile
-```
-
-Expected result:
-
-```text
-BUILD SUCCESS
-```
-
-### Step 2: Run backend tests
-
-```bash
-mvn test
-```
-
-Expected result:
-
-```text
-Tests run: <number>
-Failures: 0
-Errors: 0
-Skipped: 0
-
-BUILD SUCCESS
-```
-
-All automated tests should pass.
-
-### Step 3: Start the backend
-
-```bash
+export DB_URL=jdbc:postgresql://localhost:5432/itsm_db
+export DB_USERNAME=postgres
+export DB_PASSWORD=postgres123
 mvn spring-boot:run
 ```
 
-Wait for the Spring Boot application to start.
+**Windows (PowerShell)**
 
-Expected log message:
-
-```text
-Started IItsmApplication
+```powershell
+cd Backend
+$env:DB_URL="jdbc:postgresql://localhost:5432/itsm_db"
+$env:DB_USERNAME="postgres"
+$env:DB_PASSWORD="postgres123"
+mvn spring-boot:run
 ```
 
-Keep this terminal open while testing the application.
+**Windows (CMD)**
 
-## 5. Frontend Setup
+```cmd
+cd Backend
+set DB_URL=jdbc:postgresql://localhost:5432/itsm_db
+set DB_USERNAME=postgres
+set DB_PASSWORD=postgres123
+mvn spring-boot:run
+```
 
-Open a separate terminal inside the Frontend directory:
+Wait for the log line `Started IItsmApplication`. Tables are created automatically on first start. Keep this terminal open.
+
+### 4. Start the frontend
+
+In a second terminal:
 
 ```bash
 cd Frontend
-```
-
-### Step 1: Install dependencies
-
-```bash
 npm ci
-```
-
-This installs the dependencies specified in the package-lock file.
-
-### Step 2: Build the frontend
-
-```bash
-npm run build
-```
-
-Expected result:
-
-```text
-✓ built successfully
-```
-
-The build should complete without errors.
-
-### Step 3: Start the frontend
-
-```bash
 npm run dev
 ```
 
-Open the local URL displayed in the terminal. Usually:
+Open <http://localhost:5173>.
+
+## Sample Data and Logins
+
+On the first start with an **empty database**, the backend loads sample data so the app can be tried immediately:
+
+- 3 technicians, each with their own login
+- 6 sample incidents at different stages (new, acknowledged, in progress, resolved, closed, possible duplicate)
+
+The backend log confirms it:
 
 ```text
-http://localhost:5173
+Sample data: added 3 technicians (logins technician, priya, arjun)
+Sample data: added 6 incidents
 ```
 
-The login page should load successfully.
+| Login | Password | Role |
+|---|---|---|
+| `technician` | `tech123` | Technician (Ravi Kumar, Hardware) |
+| `priya` | `priya123` | Technician (Priya Sharma, Network and Security) |
+| `arjun` | `arjun123` | Technician (Arjun Mehta, Software and Database) |
 
-## 6. Functional Testing Checklist
+The `employee` and `admin` accounts are created by the application's default-user setup. Change all default passwords before any real deployment.
 
-After starting both the backend and frontend, test the following features.
+### Existing data is never touched
 
-### A. Application and Login
+Sample data loads **only** when the database has no technicians and no incidents. On a database that already has real data, it does nothing:
 
-- [ ] Frontend loads without errors.
-- [ ] Login page is displayed correctly.
-- [ ] Valid user credentials allow login.
-- [ ] Invalid credentials are rejected.
-- [ ] User is redirected to the appropriate dashboard.
-- [ ] Logout works correctly.
+- no sample technicians or incidents are added
+- the `technician` login is not linked to any existing technician
+- the PostgreSQL user `postgres` is only the database connection account. It is not an application login
 
-### B. Employee Features
+### Turning sample data off
 
-- [ ] Employee can view the dashboard.
-- [ ] Employee can create a new incident.
-- [ ] Incident details are saved correctly.
-- [ ] Employee can view their incidents.
-- [ ] Employee can view incident details.
-- [ ] Employee can add comments or notes, where permitted.
-- [ ] Incident status is displayed correctly.
+Recommended for any real database.
 
-### C. Technician Features
+```bash
+# Linux / macOS
+export SAMPLE_DATA=false
 
-- [ ] Technician can log in.
-- [ ] Technician can view assigned incidents.
-- [ ] Technician can open incident details.
-- [ ] Technician can update incident status.
-- [ ] Technician can add work notes.
-- [ ] Technician can resolve incidents.
-- [ ] Technician workload is displayed correctly.
-- [ ] Technician can use the delegation functionality, where permitted.
+# Windows PowerShell
+$env:SAMPLE_DATA="false"
 
-### D. Admin Features
+# Windows CMD
+set SAMPLE_DATA=false
+```
 
-- [ ] Admin can log in.
-- [ ] Admin dashboard loads correctly.
-- [ ] Admin can view all incidents.
-- [ ] Admin can view technicians and their workloads.
-- [ ] Admin can assign incidents.
-- [ ] Admin can reassign incidents.
-- [ ] Admin can manage SLA policies.
-- [ ] Admin can view notifications.
-- [ ] Admin can access audit logs and settings, where implemented.
+Or set `app.sample-data=false` in `application.properties`.
 
-### E. Delegation and Workload Management
+### Starting over with a fresh sample database (deletes all data)
 
-- [ ] Eligible users can delegate incidents.
-- [ ] Delegated incidents appear under the appropriate technician.
-- [ ] Delegation information is displayed correctly.
-- [ ] Workload limits are enforced.
-- [ ] Unauthorized delegation attempts are rejected.
-- [ ] Changes are reflected in the relevant dashboards.
+Stop the backend first, then:
 
-### F. SLA and Notifications
+```bash
+cd /tmp
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS itsm_db WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE itsm_db;"
+```
 
-- [ ] SLA policies are loaded correctly.
-- [ ] SLA information is associated with incidents.
-- [ ] SLA status is displayed correctly.
-- [ ] SLA-related notifications are generated when applicable.
-- [ ] Incident-related notifications work correctly.
+Start the backend again. The database must be created again after every drop, because Spring Boot creates tables but not the database itself.
 
-### G. Data Persistence
+## Running Tests and Builds
 
-- [ ] Newly created incidents remain after refreshing the page.
-- [ ] Updated incident statuses remain saved.
-- [ ] Assignment and delegation changes persist.
-- [ ] Notes and comments remain available.
-- [ ] Data remains available after logging out and logging back in.
+```bash
+# Backend
+cd Backend
+mvn clean compile
+mvn test
 
-## 7. API and Error Verification
+# Frontend
+cd Frontend
+npm run build
+```
 
-Use the browser developer tools to verify frontend-backend communication.
+`mvn test` should finish with `Failures: 0, Errors: 0` and `BUILD SUCCESS`.
 
-1. Open the application in Chrome.
-2. Press `F12`.
-3. Open the **Network** tab.
-4. Select **Fetch/XHR**.
-5. Perform actions such as login, incident creation, and assignment.
-6. Verify that API requests reach the backend.
-7. Check HTTP response codes and response data.
+## Verification Checklist
 
-Also inspect the Console tab for JavaScript errors.
+After starting both servers, check:
 
-Check the backend terminal for:
+- [ ] Login page loads; valid logins work and invalid ones are rejected
+- [ ] Each role reaches its own dashboard; logout works
+- [ ] **Employee:** can report an incident, view their incidents and give feedback on a resolved one
+- [ ] **Technician:** sees only assigned incidents; can acknowledge, update status, add work notes and resolve; workload is shown
+- [ ] **Admin:** sees all incidents and technicians; can assign, reassign, manage SLA policies and view notifications and audit logs
+- [ ] Delegation works and workload limits are enforced
+- [ ] SLA status and notifications appear on incidents
+- [ ] Data survives a page refresh, a re-login and a backend restart
+- [ ] No errors in the browser console (F12) or in the backend terminal
 
-- Database connection failures.
-- HTTP 4xx and 5xx errors.
-- Application exceptions.
-- Unexpected server crashes.
+## Troubleshooting
 
-## 8. Final Verification Checklist
-
-Before declaring the repository ready to use on a new system, confirm:
-
-- [ ] All prerequisites are installed.
-- [ ] Repository clones successfully.
-- [ ] PostgreSQL starts successfully.
-- [ ] Database is created and configured.
-- [ ] Backend compiles successfully.
-- [ ] All backend tests pass.
-- [ ] Backend starts without errors.
-- [ ] Frontend dependencies install successfully.
-- [ ] Frontend production build succeeds.
-- [ ] Frontend starts successfully.
-- [ ] Login and role-based access work.
-- [ ] Incident management works.
-- [ ] Assignment and delegation work.
-- [ ] SLA and notifications work.
-- [ ] Database persistence works.
-- [ ] No critical browser console or backend errors remain.
-
-## 9. Troubleshooting
-
-| Problem | Possible Solution |
+| Problem | Solution |
 |---|---|
-| `java is not recognized` | Install JDK 21 and configure PATH. |
-| `mvn is not recognized` | Install Maven and configure PATH. |
-| `npm is not recognized` | Install Node.js and restart the terminal. |
-| `vite is not recognized` | Run `npm ci` inside Frontend. |
-| Database connection refused | Ensure PostgreSQL is running. |
-| Database does not exist | Create `itsm_db`. |
-| Database authentication failed | Verify PostgreSQL credentials. |
-| Port already in use | Identify and stop the process using the port, or configure another available port. |
-| API requests fail | Verify backend startup and frontend API configuration. |
-| Frontend build fails | Check Node.js version, dependencies, and build errors. |
-| Backend tests fail | Inspect the Maven test output and failing test reports. |
+| `Peer authentication failed for user "postgres"` | On Linux, use `sudo -u postgres psql ...`, or connect with a password: `psql -U postgres -h localhost`. |
+| `could not change directory ... Permission denied` | Harmless warning from `sudo -u postgres`. Run `cd /tmp` first to hide it. |
+| `database "itsm_db" does not exist` | Create it: `sudo -u postgres psql -c "CREATE DATABASE itsm_db;"`. |
+| `database "itsm_db" already exists` | Skip creation, or drop and recreate it if you want a clean start. |
+| `password authentication failed` | Check `DB_USERNAME` and `DB_PASSWORD`, and set the password with `ALTER USER postgres PASSWORD '...'`. |
+| `Connection refused` | Start PostgreSQL (`sudo systemctl start postgresql` on Linux). |
+| `Port 8080 / 5173 already in use` | Stop the process using the port or configure another port. |
+| `Sample data: skipped ...` | The database already had technicians or incidents. Recreate it to reload sample data. |
+| `Sample data: disabled` | `SAMPLE_DATA` is set to `false`. Unset it. |
+| `vite is not recognized` | Run `npm ci` inside `Frontend`. |
+| `mvn` or `java` not found | Install the JDK or Maven and add them to PATH. |
+| API requests fail in the browser | Confirm the backend is running on port 8080 and check the Network tab (F12). |
 
-## 10. Important Notes
+## Security Notes
 
-- Start PostgreSQL before starting the backend.
-- Start the backend before testing frontend API functionality.
+- Never commit database passwords, API keys, private keys or local environment files.
+- Use environment variables or an untracked local configuration file for credentials.
+- Change all default and sample passwords before any real deployment.
+- Use test accounts and test data when verifying functionality.
+
+## Notes
+
+- Start PostgreSQL before the backend, and the backend before the frontend.
 - Keep the backend and frontend running in separate terminals.
-- Do not commit passwords, private keys, or local environment files.
-- Use test accounts and test data when verifying application functionality.
-- A successful build does not guarantee that every application feature works. Complete the functional testing checklist as well.
-
-**The repository is considered successfully verified on a new system only after the backend tests, frontend build, application startup, and functional checks have been completed.**
-
-we have to add this in readme
+- A successful build does not guarantee that every feature works, so complete the verification checklist as well.
