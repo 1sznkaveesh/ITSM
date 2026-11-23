@@ -29,15 +29,20 @@ import i_itsm.service.IncidentService;
 /**
  * Sample data so the app can be tried straight away on a new computer (an empty database).
  *
- * Runs once the application has started (after the default users, services, categories and SLA policies exist):
- *  1. No technicians yet  -> adds 3 technicians, each with a login (Ravi Kumar uses the default "technician" login).
- *  2. The "technician" login is not linked to any technician -> links it to the first technician without a login.
- *  3. No incidents yet    -> reports 6 sample incidents through the normal IncidentService, so priority, SLA,
- *                            assignment, duplicate detection, notifications and the audit trail all work as usual,
- *                            and moves some of them along the lifecycle (acknowledged, in progress, resolved, closed).
+ * Runs once the application has started (after the default users, services, categories and SLA policies exist).
  *
- * A database that already has technicians and incidents (for example the cloud database) is left as it is.
- * Turn it off with the environment variable SAMPLE_DATA=false.
+ * SAFETY RULE: sample data is loaded ONLY into a database that has no technicians and no incidents.
+ * A database that already contains real data (for example a technician such as "Malay") is never touched:
+ * no technician is created, no login is linked to an existing technician, and no incident is added.
+ *
+ * On an empty database it:
+ *  1. adds 3 technicians, each with its own login (Ravi Kumar uses the default "technician" login), and
+ *  2. reports 6 sample incidents through the normal IncidentService, so priority, SLA, assignment,
+ *     duplicate detection, notifications and the audit trail all work as usual, and moves some of them
+ *     along the lifecycle (acknowledged, in progress, resolved, closed).
+ *
+ * Turn it off completely with the environment variable SAMPLE_DATA=false
+ * (or the property app.sample-data=false). Recommended for any real PostgreSQL database.
  */
 @Component
 public class SampleDataInitializer {
@@ -55,7 +60,9 @@ public class SampleDataInitializer {
 
     public SampleDataInitializer(TechnicianRepository technicianRepository, UserRepository userRepository,
             IncidentRepository incidentRepository, ITServiceRepository serviceRepository, IncidentService incidentService,
-            FeedbackService feedbackService, PasswordEncoder passwordEncoder, @Value("${app.sample-data:true}") boolean enabled) {
+            FeedbackService feedbackService, PasswordEncoder passwordEncoder,
+            // works with the property app.sample-data OR the environment variable SAMPLE_DATA (default: true)
+            @Value("${app.sample-data:${SAMPLE_DATA:true}}") boolean enabled) {
         this.technicianRepository = technicianRepository;
         this.userRepository = userRepository;
         this.incidentRepository = incidentRepository;
@@ -68,18 +75,25 @@ public class SampleDataInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadSampleData() {
-        if (!enabled) return;
+        if (!enabled) {
+            System.out.println("Sample data: disabled (SAMPLE_DATA=false)");
+            return;
+        }
         try {
-            if (technicianRepository.count() == 0) addTechnicians();
-            linkDefaultTechnicianLogin();
-            if (incidentRepository.count() == 0 && technicianRepository.count() > 0) addIncidents();
+            // Only ever fill a completely fresh database. Existing technicians/incidents = real data: do nothing.
+            if (technicianRepository.count() > 0 || incidentRepository.count() > 0) {
+                System.out.println("Sample data: skipped, the database already has technicians or incidents");
+                return;
+            }
+            addTechnicians();
+            addIncidents();
         } catch (RuntimeException e) {
             // Sample data is a convenience: a problem here must never stop the application
             System.out.println("Sample data was not loaded: " + e.getMessage());
         }
     }
 
-    // ---- 1. Technicians ----
+    // ---- 1. Technicians (each one is created together with its own login) ----
 
     void addTechnicians() {
         addTechnician("Ravi Kumar", Set.of("HARDWARE"), DEFAULT_TECHNICIAN_LOGIN, "tech123");
@@ -97,23 +111,7 @@ public class SampleDataInitializer {
         technicianRepository.save(technician);
     }
 
-    // ---- 2. The default technician login ----
-
-    /** Links the "technician" login to the first technician that has no login yet, if nobody uses it. */
-    void linkDefaultTechnicianLogin() {
-        if (userRepository.findByUsername(DEFAULT_TECHNICIAN_LOGIN).isEmpty()) return;
-        if (technicianRepository.findByUsername(DEFAULT_TECHNICIAN_LOGIN).isPresent()) return;
-        technicianRepository.findAll().stream()
-                .filter(t -> t.getUsername() == null || t.getUsername().isBlank())
-                .min((a, b) -> Long.compare(a.getId(), b.getId()))
-                .ifPresent(t -> {
-                    t.setUsername(DEFAULT_TECHNICIAN_LOGIN);
-                    technicianRepository.save(t);
-                    System.out.println("Sample data: linked the 'technician' login to " + t.getName());
-                });
-    }
-
-    // ---- 3. Incidents ----
+    // ---- 2. Incidents ----
 
     void addIncidents() {
         // A fixed payment problem (closed, with feedback): later payment incidents get it as a suggested fix
